@@ -1,5 +1,5 @@
-# Creates an enterprise-grade S3 bucket in us-east-2 named ac345 with versioning enabled, default SSE-S3 encryption (AES256), BucketOwnerEnforced object ownership (ACLs disabled), and all public access blocked.
-# Generated Terraform code for AWS in us-east-2
+# Creates a production-grade S3 bucket in us-east-1 named 788i with BucketOwnerEnforced object ownership (ACLs disabled), full public access blocking, versioning enabled, and default SSE-S3 (AES256) encryption.
+# Generated Terraform code for AWS in us-east-1
 
 terraform {
   required_version = ">= 1.14.0"
@@ -12,46 +12,56 @@ terraform {
   }
 }
 
-variable "aws_region" {
-  description = "AWS region to deploy resources into."
+variable "bucket_name" {
+  description = "Name of the S3 bucket to create"
   type        = string
-  default     = "us-east-2"
+  default     = "788i"
 
   validation {
-    condition     = length(var.aws_region) > 0
-    error_message = "aws_region must be a non-empty string."
+    condition     = length(var.bucket_name) >= 3 && length(var.bucket_name) <= 63
+    error_message = "S3 bucket names must be between 3 and 63 characters."
   }
 }
 
-variable "bucket_name" {
-  description = "Name of the S3 bucket."
+variable "region" {
+  description = "AWS region to deploy into"
   type        = string
-  default     = "ac345"
-
-  validation {
-    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.bucket_name))
-    error_message = "bucket_name must be a valid S3 bucket name (3-63 chars, lowercase letters, numbers, dots, hyphens)."
-  }
+  default     = "us-east-1"
 }
 
 variable "tags" {
-  description = "Tags to apply to all resources."
+  description = "Tags to apply to all resources"
   type        = map(string)
   default = {
     Environment = "prod"
     ManagedBy   = "terraform"
-    Project     = "ac345"
   }
 }
 
 provider "aws" {
-  region = var.aws_region
+  region = var.region
   {{block_to_replace_cred}}
 }
 
 resource "aws_s3_bucket" "main" {
   bucket = var.bucket_name
   tags   = var.tags
+}
+
+resource "aws_s3_bucket_ownership_controls" "main" {
+  bucket = aws_s3_bucket.main.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "main" {
+  block_public_acls       = true
+  block_public_policy     = true
+  bucket                  = aws_s3_bucket.main.id
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 resource "aws_s3_bucket_versioning" "main" {
@@ -72,33 +82,17 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "main" {
   }
 }
 
-resource "aws_s3_bucket_ownership_controls" "main" {
-  bucket = aws_s3_bucket.main.id
-
-  rule {
-    object_ownership = "BucketOwnerEnforced"
-  }
-}
-
-resource "aws_s3_bucket_public_access_block" "main" {
-  block_public_acls       = true
-  block_public_policy     = true
-  bucket                  = aws_s3_bucket.main.id
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-output "s3_bucket_id" {
-  description = "ID of the S3 bucket."
-  value       = aws_s3_bucket.main.id
-}
-
-output "s3_bucket_arn" {
-  description = "ARN of the S3 bucket."
+output "bucket_arn" {
+  description = "ARN of the created S3 bucket"
   value       = aws_s3_bucket.main.arn
 }
 
-output "s3_bucket_name" {
-  description = "Name of the S3 bucket."
-  value       = aws_s3_bucket.main.bucket
+output "bucket_id" {
+  description = "ID (name) of the created S3 bucket"
+  value       = aws_s3_bucket.main.id
+}
+
+output "bucket_region" {
+  description = "Region the bucket is deployed into (from input variable)"
+  value       = var.region
 }
